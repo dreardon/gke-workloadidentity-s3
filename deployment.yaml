@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: credentials-sh
+  namespace: default
+data:
+  credentials.sh: |-
+    #!/bin/bash
+    jwt_token=$(curl -sH "Metadata-Flavor: Google" "http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=${GSA_UNIQUE_ID}&format=full&licenses=FALSE")
+    jwt_sub=$(echo $jwt_token | awk -F'.' '{print $2}' | base64 --decode | jq -r '.sub')
+    credentials=$(aws sts assume-role-with-web-identity --role-arn $ROLE_ARN --role-session-name $jwt_sub --web-identity-token $jwt_token | jq '.Credentials' | jq '.Version=1')
+    echo $credentials
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-config
+  namespace: default
+data:
+  config: |-
+    [profile S3ReadOnlyAccess]
+    credential_process = /opt/credentials.sh
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-exec
+  labels:
+    app: aws-exec
+spec:
+  selector:
+    matchLabels:
+      app: aws-exec
+  template:
+    metadata:
+      labels:
+        app: aws-exec
+    spec:
+      serviceAccountName: s3-ksa
+      containers:
+      - name: aws-exec
+        image: [IMAGE_REFERENCE]
+        volumeMounts:
+          - name: credentials-sh
+            mountPath: /opt
+          - name: aws-config
+            mountPath: /root/.aws
+        env:
+          - name: GSA_UNIQUE_ID
+            value: $GSA_UNIQUE_ID
+          - name: ROLE_ARN
+            value: $ROLE_ARN
+      volumes:
+        - name: credentials-sh
+          configMap:
+            name: credentials-sh
+            defaultMode: 0777
+            items:
+              - key: credentials.sh
+                path: credentials.sh
+        - name: aws-config
+          configMap:
+            name: aws-config
+            items:
+              - key: config
+                path: config
