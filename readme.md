@@ -50,8 +50,6 @@ printf 'y' |  gcloud services enable container.googleapis.com --project $PROJECT
 printf 'y' |  gcloud services enable gkehub.googleapis.com --project $PROJECT_ID
 printf 'y' |  gcloud services enable cloudresourcemanager.googleapis.com --project $PROJECT_ID
 printf 'y' |  gcloud services enable cloudbuild.googleapis.com --project $PROJECT_ID
-printf 'y' |  gcloud services enable gkemulticloud.googleapis.com --project $PROJECT_ID
-
 
 gcloud auth application-default set-quota-project $PROJECT_ID
 ```
